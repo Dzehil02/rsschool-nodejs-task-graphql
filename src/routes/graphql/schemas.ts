@@ -50,6 +50,8 @@ export const schema = buildSchema(`
       balance: Float
       profile: Profile
       posts: [Post]
+      userSubscribedTo: [SubscribersOnAuthors]
+      subscribedToUser: [SubscribersOnAuthors]
   }
 
     type Post {
@@ -70,28 +72,59 @@ export const schema = buildSchema(`
         user: User
     }
 
-    input UserInput {
+    type SubscribersOnAuthors {
+      subscriberId: UUID
+      authorId: UUID
+      subscriber: User
+      author: User
+    }
+
+    input CreateUserInput {
         name: String!
         balance: Float!
     }
 
-    input PostInput {
+    input CreatePostInput {
         title: String!
         content: String!
         authorId: String!
     }
 
-    input ProfileInput {
+    input CreateProfileInput {
         isMale: Boolean!
         yearOfBirth: Int!
         userId: String!
         memberTypeId: MemberTypeId!
     }
 
+    input ChangeUserInput {
+        name: String
+        balance: Float
+        profileId: String
+    }
+
+    input ChangePostInput {
+        title: String
+        content: String
+        authorId: String
+    }
+
+    input ChangeProfileInput {
+        isMale: Boolean
+        yearOfBirth: Int
+        memberTypeId: MemberTypeId
+    }
+
     type Mutation {
-      createUser(input: UserInput!): User
-      createPost(input: PostInput!): Post
-      createProfile(input: ProfileInput!): Profile
+      createUser(dto: CreateUserInput!): User
+      createPost(dto: CreatePostInput!): Post
+      createProfile(dto: CreateProfileInput!): Profile
+      deleteUser(id: UUID!): UUID
+      deletePost(id: UUID!): UUID
+      deleteProfile(id: UUID!): UUID
+      changeUser(id: UUID!, dto: ChangeUserInput!): User
+      changePost(id: UUID!, dto: ChangePostInput!): Post
+      changeProfile(id: UUID!, dto: ChangeProfileInput!): Profile
   }
 
     type Query {
@@ -103,6 +136,8 @@ export const schema = buildSchema(`
       user(id: UUID!): User
       post(id: UUID!): Post
       profile(id: UUID!): Profile
+      subscribedToUser(id: UUID!): [User]
+      userSubscribedTo(id: UUID!): [User]
   }
 
 `);
@@ -150,13 +185,21 @@ export const rootValue = {
             memberType: true,
           },
         },
+        userSubscribedTo: true,
+        subscribedToUser: {
+          include: {
+            author: true,
+            subscriber: true,
+          },
+        },
       },
     });
 
     if (!user) {
       return null;
     }
-
+    console.log('user');
+    console.log(user);
     return user;
   },
   posts: async () => {
@@ -198,8 +241,82 @@ export const rootValue = {
     }
     return profile;
   },
+  subscribedToUser: async (req: ExtendedRequest) => {
+    const { id } = req;
+    const users = await prisma.user.findMany({
+      where: {
+        userSubscribedTo: {
+          some: {
+            authorId: id,
+          },
+        },
+      },
+    });
+
+    //
+    const subscribersOnAuthors = await prisma.subscribersOnAuthors.findMany({
+      where: {
+        authorId: id,
+      },
+      include: {
+        subscriber: true,
+        author: true,
+      },
+    });
+
+    console.log('subscribersOnAuthors');
+    console.log(subscribersOnAuthors);
+    //
+
+    console.log('users from subscribedToUser');
+    console.log(users);
+    return users;
+  },
+
+  userSubscribedTo: async (req: ExtendedRequest) => {
+    const { id } = req;
+    const users = await prisma.user.findMany({
+      where: {
+        subscribedToUser: {
+          some: {
+            subscriberId: id,
+          },
+        },
+      },
+    });
+    console.log('users from userSubscribedTo');
+    console.log(users);
+    return users;
+  },
+
+  // userSubscribedTo: async (req: ExtendedRequest) => {
+  //   const { id } = req;
+  //   const subscribersOnAuthors = await prisma.subscribersOnAuthors.findMany({
+  //     where: {
+  //       authorId: id,
+  //     },
+  //     include: {
+  //       subscriber: true,
+  //     },
+  //   });
+  //   return subscribersOnAuthors;
+  // },
+
+  // subscribedToUser: async (req: ExtendedRequest) => {
+  //   const { id } = req;
+  //   const subscribersOnAuthors = await prisma.subscribersOnAuthors.findMany({
+  //     where: {
+  //       subscriberId: id,
+  //     },
+  //     include: {
+  //       author: true,
+  //     },
+  //   });
+  //   return subscribersOnAuthors;
+  // },
+
   createUser: async (req: ExtendedRequest) => {
-    const { name, balance } = req.input as CreateUserInput;
+    const { name, balance } = req.dto as CreateUserInput;
     const user: User = await prisma.user.create({
       data: {
         name,
@@ -210,7 +327,7 @@ export const rootValue = {
   },
 
   createPost: async (req: ExtendedRequest) => {
-    const { title, content, authorId } = req.input as CreatePostInput;
+    const { title, content, authorId } = req.dto as CreatePostInput;
     const post: Post = await prisma.post.create({
       data: {
         title,
@@ -222,8 +339,7 @@ export const rootValue = {
   },
 
   createProfile: async (req: ExtendedRequest) => {
-    const { isMale, yearOfBirth, userId, memberTypeId } = req.input as CreateProfileInput;
-    console.log(req.input);
+    const { isMale, yearOfBirth, userId, memberTypeId } = req.dto as CreateProfileInput;
     const profile: Profile = await prisma.profile.create({
       data: {
         isMale,
@@ -233,5 +349,74 @@ export const rootValue = {
       },
     });
     return profile;
+  },
+
+  deleteUser: async (req: ExtendedRequest) => {
+    const { id } = req;
+    await prisma.user.delete({
+      where: {
+        id,
+      },
+    });
+  },
+
+  deletePost: async (req: ExtendedRequest) => {
+    const { id } = req;
+    await prisma.post.delete({
+      where: {
+        id,
+      },
+    });
+  },
+
+  deleteProfile: async (req: ExtendedRequest) => {
+    const { id } = req;
+    await prisma.profile.delete({
+      where: {
+        id,
+      },
+    });
+  },
+  changePost: async (req: ExtendedRequest) => {
+    const { id } = req;
+    const { title, content } = req.dto as CreatePostInput;
+    return await prisma.post.update({
+      where: {
+        id,
+      },
+      data: {
+        title,
+        content,
+      },
+    });
+  },
+
+  changeProfile: async (req: ExtendedRequest) => {
+    const { id } = req;
+    const { isMale, yearOfBirth, memberTypeId } = req.dto as CreateProfileInput;
+    return await prisma.profile.update({
+      where: {
+        id,
+      },
+      data: {
+        isMale,
+        yearOfBirth,
+        memberTypeId,
+      },
+    });
+  },
+
+  changeUser: async (req: ExtendedRequest) => {
+    const { id } = req;
+    const { name, balance } = req.dto as CreateUserInput;
+    return await prisma.user.update({
+      where: {
+        id,
+      },
+      data: {
+        name,
+        balance,
+      },
+    });
   },
 };

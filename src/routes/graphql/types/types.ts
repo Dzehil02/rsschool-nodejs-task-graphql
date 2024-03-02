@@ -21,5 +21,5 @@ import { MemberTypeId } from "../../member-types/schemas.js";
   }
   
 export interface ExtendedRequest extends FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage> {
-    input: CreateUserInput | CreatePostInput | CreateProfileInput
+    dto: CreateUserInput | CreatePostInput | CreateProfileInput
   }
