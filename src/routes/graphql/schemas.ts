@@ -1,7 +1,12 @@
 import { Type } from '@fastify/type-provider-typebox';
 import { PrismaClient, User, Profile, Post } from '@prisma/client';
 import { buildSchema } from 'graphql';
-import { CreatePostInput, CreateProfileInput, CreateUserInput, ExtendedRequest } from './types/types.js';
+import {
+  CreatePostInput,
+  CreateProfileInput,
+  CreateUserInput,
+  ExtendedRequest,
+} from './types/types.js';
 
 export const gqlResponseSchema = Type.Partial(
   Type.Object({
@@ -30,31 +35,39 @@ export const schema = buildSchema(`
         business
     }
 
+    scalar UUID
+
     type MemberType {
         id: MemberTypeId
         discount: Float      
         postsLimitPerMonth: Int
+        profiles: [Profile]
     }
 
     type User {
-      id: String
+      id: UUID
       name: String
       balance: Float
+      profile: Profile
+      posts: [Post]
   }
 
     type Post {
-        id: String
+        id: UUID
         title: String
         content: String
         authorId: String
+        author: User
     }
 
     type Profile {
-        id: String
+        id: UUID
         isMale: Boolean
         yearOfBirth: Int
         userId: String
         memberTypeId: MemberTypeId
+        memberType: MemberType
+        user: User
     }
 
     input UserInput {
@@ -83,10 +96,13 @@ export const schema = buildSchema(`
 
     type Query {
       memberTypes: [MemberType]
-      getMemberTypeByIdSchema(id: MemberTypeId!): MemberType
       users: [User]
       posts: [Post]
       profiles: [Profile]
+      memberType(id: MemberTypeId!): MemberType
+      user(id: UUID!): User
+      post(id: UUID!): Post
+      profile(id: UUID!): Profile
   }
 
 `);
@@ -96,26 +112,91 @@ export const rootValue = {
     const memberTypes = await prisma.memberType.findMany();
     return memberTypes;
   },
-  getMemberTypeByIdSchema: async (req: ExtendedRequest) => {
+  memberType: async (req: ExtendedRequest) => {
     const { id } = req;
     const memberType = await prisma.memberType.findUnique({
       where: {
         id,
       },
+      include: {
+        profiles: true,
+      },
     });
     return memberType;
   },
   users: async () => {
-    const users = await prisma.user.findMany();
+    const users = await prisma.user.findMany({
+      include: {
+        posts: true,
+        profile: {
+          include: {
+            memberType: true,
+          },
+        },
+      },
+    });
     return users;
+  },
+  user: async (req: ExtendedRequest) => {
+    const { id } = req;
+    const user = await prisma.user.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        posts: true,
+        profile: {
+          include: {
+            memberType: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return user;
   },
   posts: async () => {
     const posts = await prisma.post.findMany();
     return posts;
   },
+  post: async (req: ExtendedRequest) => {
+    const { id } = req;
+    const post = await prisma.post.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        author: true,
+      },
+    });
+    if (!post) {
+      return null;
+    }
+    return post;
+  },
   profiles: async () => {
     const profiles = await prisma.profile.findMany();
     return profiles;
+  },
+  profile: async (req: ExtendedRequest) => {
+    const { id } = req;
+    const profile = await prisma.profile.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        user: true,
+        memberType: true,
+      },
+    });
+    if (!profile) {
+      return null;
+    }
+    return profile;
   },
   createUser: async (req: ExtendedRequest) => {
     const { name, balance } = req.input as CreateUserInput;
