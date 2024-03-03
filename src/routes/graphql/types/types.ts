@@ -1,25 +1,19 @@
-import { FastifyRequest, RouteGenericInterface, RawServerDefault } from "fastify";
-import { IncomingMessage } from "http";
 import { MemberTypeId } from "../../member-types/schemas.js";
 
- export interface CreateUserInput {
+ export interface ICreateUserInput {
     name: string;
     balance: number;
   }
 
- export interface CreatePostInput {
+ export interface ICreatePostInput {
     title: string;
     content: string;
     authorId: string;
   }
 
- export interface CreateProfileInput {
+ export interface ICreateProfileInput {
     isMale: boolean;
     yearOfBirth: number;
     userId: string;
     memberTypeId: MemberTypeId;
-  }
-  
-export interface ExtendedRequest extends FastifyRequest<RouteGenericInterface, RawServerDefault, IncomingMessage> {
-    dto: CreateUserInput | CreatePostInput | CreateProfileInput
   }
