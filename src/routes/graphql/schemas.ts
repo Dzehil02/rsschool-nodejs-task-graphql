@@ -147,8 +147,6 @@ const UserType = new GraphQLObjectType({
         //     subscribedToUser: true,
         //   }
         // });
-        // console.log('users from old resolver');
-        // console.log(users);
         // return users;
         // -----------------------------------------------------
 
@@ -156,8 +154,6 @@ const UserType = new GraphQLObjectType({
 
         if (!dataloader) {
           dataloader = new Dataloader(async (ids) => {
-            console.log('ids');
-            console.log(ids);
             const users = await prisma.user.findMany({
               where: {
                 subscribedToUser: {
@@ -178,9 +174,6 @@ const UserType = new GraphQLObjectType({
               const subscribedToUsers = users.filter((u) => u.subscribedToUser.some((su) => su.subscriberId === id));
               return subscribedToUsers;
             });
-
-            console.log('sortedInIdsUsers');
-            console.log(sortedInIdsUsers);
             return sortedInIdsUsers;
           });
           dataloaders.set(info.fieldNodes, dataloader);
